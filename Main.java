@@ -1,5 +1,3 @@
-package org.example;
-
 import se.michaelthelin.spotify.SpotifyApi;
 import se.michaelthelin.spotify.exceptions.SpotifyWebApiException;
 import se.michaelthelin.spotify.model_objects.specification.Recommendations;
@@ -7,81 +5,138 @@ import se.michaelthelin.spotify.model_objects.specification.TrackSimplified;
 import se.michaelthelin.spotify.requests.data.browse.GetRecommendationsRequest;
 import org.apache.hc.core5.http.ParseException;
 
-import javax.sound.sampled.*;
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
-import java.net.URL;
 
-public class Main {
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new MusicRecommenderGUI());
-    }
-}
-
-class MusicRecommenderGUI extends JFrame {
+public class Main extends JFrame {
+    private SpotifyApi spotifyApi;
     private String genre;
     private String mood;
     private String feeling;
     private String state;
-    private SpotifyApi spotifyApi;
 
-    public MusicRecommenderGUI() {
+    public Main() {
         setTitle("Music Recommender");
         setSize(400, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
+        // Spotify API 초기화
         initializeSpotifyApi();
 
-        // 진행 상태 패널
-        JPanel headerPanel = new JPanel();
-        headerPanel.setBackground(new Color(255, 245, 247));
-        headerPanel.setLayout(new BorderLayout());
-        JLabel stepLabel = new JLabel("Step 1: Select Genre", SwingConstants.CENTER);
-        stepLabel.setFont(new Font("Arial", Font.BOLD, 18));
-        stepLabel.setForeground(new Color(255, 102, 102));
-        headerPanel.add(stepLabel, BorderLayout.CENTER);
+        // 상단 Q1 라벨
+        JLabel questionLabel = new JLabel("Q1");
+        questionLabel.setFont(new Font("맑은 고딕", Font.BOLD, 40)); // 한글 폰트 적용
+        questionLabel.setForeground(new Color(255, 182, 193)); // 핑크 색상
+        questionLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-        add(headerPanel, BorderLayout.NORTH);
+        // 중앙 질문 라벨
+        JLabel instructionLabel = new JLabel("선호하는 노래 장르를 선택하세요");
+        instructionLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 18)); // 한글 폰트 적용
+        instructionLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-        // 옵션 선택
-        genre = showOptions("선호하는 노래 장르를 선택하세요", new String[]{"팝", "락", "케이팝", "발라드"});
-        if (genre == null) return;
-
-        stepLabel.setText("Step 2: Select Mood");
-        mood = showOptions("선호하는 노래 분위기를 선택하세요", new String[]{"신나는", "잔잔한", "강렬한", "우울한"});
-        if (mood == null) return;
-
-        stepLabel.setText("Step 3: Select Feeling");
-        feeling = showOptions("현재 기분을 선택하세요", new String[]{"행복함", "슬픔", "평온함", "화남"});
-        if (feeling == null) return;
-
-        stepLabel.setText("Step 4: Select State");
-        state = showOptions("현재 상태를 선택하세요", new String[]{"운동 중", "공부 중", "등하굣길", "휴식 중"});
-        if (state == null) return;
-
-        // 추천 버튼
-        JButton recommendButton = new JButton("추천 음악 보기");
-        recommendButton.setBackground(new Color(255, 102, 102));
-        recommendButton.setForeground(Color.WHITE);
-        recommendButton.setFont(new Font("맑은 고딕", Font.BOLD, 16));
-        recommendButton.setFocusPainted(false);
-        recommendButton.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-
+        // 버튼 패널 생성
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setBackground(Color.WHITE);
-        buttonPanel.add(recommendButton);
+        buttonPanel.setLayout(new GridLayout(4, 1, 10, 10));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        buttonPanel.setBackground(Color.LIGHT_GRAY);
 
+        // 버튼 생성
+        String[] genres = {"팝", "락", "케이팝", "발라드"};
+        Color[] colors = {
+                new Color(255, 255, 204), // 연한 노랑
+                new Color(255, 229, 204), // 연한 오렌지
+                new Color(255, 204, 153), // 오렌지
+                new Color(255, 182, 193)  // 연한 핑크
+        };
+
+        for (int i = 0; i < genres.length; i++) {
+            JButton button = new JButton(genres[i]);
+            button.setBackground(colors[i]);
+            button.setOpaque(true);
+            button.setBorderPainted(false);
+            button.setFont(new Font("맑은 고딕", Font.PLAIN, 16)); // 한글 폰트 적용
+            button.addActionListener(e -> {
+                genre = e.getActionCommand();
+                nextStep("Q2", "선호하는 노래 분위기를 선택하세요", new String[]{"신나는", "잔잔한", "강렬한", "우울한"});
+            });
+            buttonPanel.add(button);
+        }
+
+        // 레이아웃 구성
+        add(questionLabel, BorderLayout.NORTH);
+        add(instructionLabel, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.SOUTH);
 
-        recommendButton.addActionListener(e -> {
-            String recommendedMusic = recommendMusic();
-            JOptionPane.showMessageDialog(this, "추천 음악: " + recommendedMusic);
-        });
-
         setVisible(true);
+    }
+
+    private void nextStep(String question, String instruction, String[] options) {
+        getContentPane().removeAll(); // 기존 컴포넌트 제거
+
+        // 질문 업데이트
+        JLabel questionLabel = new JLabel(question);
+        questionLabel.setFont(new Font("맑은 고딕", Font.BOLD, 40)); // 한글 폰트 적용
+        questionLabel.setForeground(new Color(255, 182, 193)); // 핑크 색상
+        questionLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JLabel instructionLabel = new JLabel(instruction);
+        instructionLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 18)); // 한글 폰트 적용
+        instructionLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        // 새로운 버튼 패널 생성
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new GridLayout(4, 1, 10, 10));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        buttonPanel.setBackground(Color.LIGHT_GRAY);
+
+        for (String option : options) {
+            JButton button = new JButton(option);
+            button.setBackground(new Color(255, 229, 204));
+            button.setOpaque(true);
+            button.setBorderPainted(false);
+            button.setFont(new Font("맑은 고딕", Font.PLAIN, 16)); // 한글 폰트 적용
+            button.addActionListener(e -> {
+                if (question.equals("Q2")) {
+                    mood = option;
+                    nextStep("Q3", "현재 기분을 선택하세요", new String[]{"행복함", "슬픔", "평온함", "화남"});
+                } else if (question.equals("Q3")) {
+                    feeling = option;
+                    nextStep("Q4", "현재 상태를 선택하세요", new String[]{"운동 중", "공부 중", "등하굣길", "휴식 중"});
+                } else if (question.equals("Q4")) {
+                    state = option;
+                    showRecommendation();
+                }
+            });
+            buttonPanel.add(button);
+        }
+
+        add(questionLabel, BorderLayout.NORTH);
+        add(instructionLabel, BorderLayout.CENTER);
+        add(buttonPanel, BorderLayout.SOUTH);
+        revalidate();
+        repaint();
+    }
+
+    private void showRecommendation() {
+        getContentPane().removeAll(); // 기존 컴포넌트 제거
+
+        String recommendedMusic = recommendMusic();
+
+        JLabel resultLabel = new JLabel("추천 음악");
+        resultLabel.setFont(new Font("맑은 고딕", Font.BOLD, 30)); // 한글 폰트 적용
+        resultLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JLabel musicLabel = new JLabel(recommendedMusic);
+        musicLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 20)); // 한글 폰트 적용
+        musicLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        add(resultLabel, BorderLayout.NORTH);
+        add(musicLabel, BorderLayout.CENTER);
+
+        revalidate();
+        repaint();
     }
 
     private void initializeSpotifyApi() {
@@ -102,10 +157,6 @@ class MusicRecommenderGUI extends JFrame {
     }
 
     private String recommendMusic() {
-        if (genre == null || mood == null || feeling == null || state == null) {
-            return "모든 옵션을 선택해야 음악을 추천할 수 있습니다!";
-        }
-
         try {
             GetRecommendationsRequest recommendationsRequest = spotifyApi.getRecommendations()
                     .seed_genres(mapGenreToSpotifyGenre(genre))
@@ -115,129 +166,51 @@ class MusicRecommenderGUI extends JFrame {
                     .build();
 
             Recommendations recommendations = recommendationsRequest.execute();
-            TrackSimplified[] tracks = recommendations.getTracks(); // TrackSimplified 사용
+            TrackSimplified[] tracks = recommendations.getTracks();
 
             if (tracks.length > 0) {
-                TrackSimplified recommendedTrack = tracks[0]; // TrackSimplified 객체 사용
-                String previewUrl = recommendedTrack.getPreviewUrl();
-
-                if (previewUrl != null) {
-                    playPreview(previewUrl);
-                    return recommendedTrack.getName() + " by " + recommendedTrack.getArtists()[0].getName();
-                } else {
-                    return "추천된 음악은 있지만 미리 듣기를 제공하지 않습니다: " +
-                            recommendedTrack.getName() + " by " + recommendedTrack.getArtists()[0].getName();
-                }
+                TrackSimplified recommendedTrack = tracks[0];
+                return recommendedTrack.getName() + " by " + recommendedTrack.getArtists()[0].getName();
             } else {
-                return "조건에 맞는 음악을 찾을 수 없습니다.";
+                return "추천된 음악이 없습니다.";
             }
         } catch (IOException | SpotifyWebApiException | ParseException e) {
             e.printStackTrace();
-            return "음악 추천 중 오류가 발생했습니다.";
-        }
-    }
-
-    private void playPreview(String previewUrl) {
-        if (previewUrl == null) {
-            JOptionPane.showMessageDialog(this, "미리보기 URL이 제공되지 않았습니다.");
-            return;
-        }
-
-        try {
-            System.out.println("Preview URL: " + previewUrl);
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new URL(previewUrl));
-            Clip clip = AudioSystem.getClip();
-            clip.open(audioInputStream);
-            clip.start();
-            Thread.sleep(30000); // 30초 동안 재생
-            clip.stop();
-        } catch (UnsupportedAudioFileException e) {
-            JOptionPane.showMessageDialog(this, "오디오 포맷이 지원되지 않습니다.");
-            e.printStackTrace();
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "네트워크 오류로 인해 오디오를 재생할 수 없습니다.");
-            e.printStackTrace();
-        } catch (LineUnavailableException e) {
-            JOptionPane.showMessageDialog(this, "오디오 장치가 사용 불가능합니다.");
-            e.printStackTrace();
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "오디오 재생 중 오류가 발생했습니다.");
-            e.printStackTrace();
+            return "추천 중 오류가 발생했습니다.";
         }
     }
 
     private String mapGenreToSpotifyGenre(String genre) {
         switch (genre) {
-            case "팝":
-                return "pop";
-            case "락":
-                return "rock";
-            case "케이팝":
-                return "k-pop";
-            case "발라드":
-                return "ballad";
-            default:
-                return "pop";
+            case "팝": return "pop";
+            case "락": return "rock";
+            case "케이팝": return "k-pop";
+            case "발라드": return "ballad";
+            default: return "pop";
         }
     }
 
     private float mapMoodToValence(String mood) {
         switch (mood) {
-            case "신나는":
-                return 0.8f;
-            case "잔잔한":
-                return 0.4f;
-            case "강렬한":
-                return 0.7f;
-            case "우울한":
-                return 0.2f;
-            default:
-                return 0.5f;
+            case "신나는": return 0.8f;
+            case "잔잔한": return 0.4f;
+            case "강렬한": return 0.7f;
+            case "우울한": return 0.2f;
+            default: return 0.5f;
         }
     }
 
     private float mapStateToEnergy(String state) {
         switch (state) {
-            case "운동 중":
-                return 0.9f;
-            case "공부 중":
-                return 0.3f;
-            case "등하굣길":
-                return 0.6f;
-            case "휴식 중":
-                return 0.2f;
-            default:
-                return 0.5f;
+            case "운동 중": return 0.9f;
+            case "공부 중": return 0.3f;
+            case "등하굣길": return 0.6f;
+            case "휴식 중": return 0.2f;
+            default: return 0.5f;
         }
     }
 
-    private String showOptions(String title, String[] options) {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        ButtonGroup buttonGroup = new ButtonGroup();
-
-        // 한글 지원 폰트 설정
-        Font koreanFont = new Font("맑은 고딕", Font.PLAIN, 14);
-
-        for (String option : options) {
-            JRadioButton radioButton = new JRadioButton(option);
-            radioButton.setFont(koreanFont); // 폰트를 적용
-            buttonGroup.add(radioButton);
-            panel.add(radioButton);
-        }
-
-        int result = JOptionPane.showConfirmDialog(this, panel, title, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-        if (result == JOptionPane.OK_OPTION) {
-            for (Component component : panel.getComponents()) {
-                if (component instanceof JRadioButton) {
-                    JRadioButton radioButton = (JRadioButton) component;
-                    if (radioButton.isSelected()) {
-                        return radioButton.getText();
-                    }
-                }
-            }
-        }
-        return null;
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(Main::new);
     }
 }
